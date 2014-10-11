@@ -40,7 +40,7 @@ function parse_string(io::IO)
     if c === '\\'
       c = read(io, Char)
       if c == 'u' # Unicode escape
-        write(buf, unescape_string("\\u$(join(map(char, readbytes(io, 4))))")[1])
+        write(buf, unescape_string("\\u$(ascii(readbytes(io, 4)))")[1])
       elseif c === '"'  write(buf, '"' )
       elseif c === '\\' write(buf, '\\')
       elseif c === '/'  write(buf, '/' )
