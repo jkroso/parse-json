@@ -2,7 +2,8 @@
 
 suite("strings") do
   @test parse("\"hi\"") == "hi"
-  @test parse("\"\n\"") == "\n"
+  @test parse("\"\\n\"") == "\n"
+  @test parse("\"\\u0026\"") == "&"
 end
 
 suite("numbers") do
