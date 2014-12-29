@@ -1,4 +1,4 @@
-const whitespace = Set(" \t\n\r"...)
+const whitespace = " \t\n\r"
 
 parse(json::String) = parse(IOBuffer(json))
 
@@ -91,3 +91,5 @@ function skipwhitespace(io::IO)
     c in whitespace || return c
   end
 end
+
+Base.parse(::MIME"application/json", io::IO) = parse(readall(io))
