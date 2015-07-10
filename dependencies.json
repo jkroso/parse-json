@@ -1,7 +1,0 @@
-{
-  "development": {
-    "jest": "http://github.com/jkroso/jest/tarball/0.0.2",
-    "mime-db": "http://registry.npmjs.org/mime-db/-/mime-db-1.1.0.tgz",
-    "JSON": "http://github.com/JuliaLang/JSON.jl/tarball/v0.3.8"
-  }
-}

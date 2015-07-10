@@ -1,10 +1,8 @@
-
-dependencies: dependencies.json
-	@packin install --folder $@ --meta $<
-	@ln -snf .. $@/parse-json
+dependencies:
+	mkdir $@ && ln -snf .. $@/parse-json
 
 test: dependencies
-	@$</jest/bin/jest test
+	@jest index.jl
 
 bench: dependencies
 	@julia bench.jl

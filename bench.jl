@@ -1,8 +1,12 @@
-@require "JSON/src/Parser" parse => parseB
 @require "." parse => parseA
+import JSON.parse
 using Benchmark
 
-show(compare([
-  parseJSON() = open(parseA,"./dependencies/mime-db/db.json"),
-  JSON() = parseB(readall("./dependencies/mime-db/db.json"))
-], 100))
+const file = realpath("Readme.ipynb")
+const src = readall(file)
+const buf = IOBuffer(src)
+
+compare([
+  parseJSON() = (parseA(buf);seekstart(buf)),
+  standard() = parse(src)
+], 200) |> println
