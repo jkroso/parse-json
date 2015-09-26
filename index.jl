@@ -1,13 +1,19 @@
 const whitespace = " \t\n\r"
 
-parse(json::String) = parse(IOBuffer(json))
+function skipwhitespace(io::IO)
+  while true
+    c = read(io, Char)
+    c in whitespace || return c
+  end
+end
+
+parse(json::AbstractString) = parse(IOBuffer(json))
 
 function parse(io::IO)
-  c = read(io, Char)
-  if c in whitespace parse(io)
-  elseif c ≡ '"'   parse_string(io)
-  elseif c ≡ '{'   parse_dict(io)
-  elseif c ≡ '['   parse_vec(io)
+  c = skipwhitespace(io)
+  if     c ≡ '"' parse_string(io)
+  elseif c ≡ '{' parse_dict(io)
+  elseif c ≡ '[' parse_vec(io)
   elseif isdigit(c) || c ≡ '+' || c ≡ '-' parse_number(c, io)
   elseif c ≡ 't' && readbytes(io, 3) == ["rue"... ] true
   elseif c ≡ 'f' && readbytes(io, 4) == ["alse"...] false
@@ -22,27 +28,27 @@ test("primitives") do
 end
 
 function parse_number(c::Char, io::IO)
-  parser = parseint
-  buf = PipeBuffer(Uint8[c])
+  Type = Int32
+  buf = UInt8[c]
   while !eof(io)
     c = read(io, Char)
     if c ≡ '.'
-      @assert parser ≡ parseint "malformed number"
-      parser = parsefloat
+      @assert Type ≡ Int32 "malformed number"
+      Type = Float32
     elseif !isdigit(c)
       skip(io, -1)
       break
     end
-    write(buf, c)
+    push!(buf, c)
   end
-  parser(takebuf_string(buf))
+  Base.parse(Type, ascii(buf))
 end
 
 test("numbers") do
-  @test parse("1") ≡ 1
-  @test parse("+1") ≡ 1
-  @test parse("-1") ≡ -1
-  @test parse("1.0") ≡ 1.0
+  @test parse("1") == 1
+  @test parse("+1") == 1
+  @test parse("-1") == -1
+  @test parse("1.0") == 1.0
 end
 
 function parse_string(io::IO)
@@ -75,7 +81,7 @@ test("strings") do
 end
 
 function parse_vec(io::IO)
-  vec = {}
+  vec = []
   skipwhitespace(io) ≡ ']' && return vec
   skip(io, -1)
   while true
@@ -88,19 +94,19 @@ function parse_vec(io::IO)
 end
 
 test("Vector") do
-  @test parse("[]") == {}
-  @test parse("[1]") == {1}
-  @test parse("[1,2]") == {1,2}
-  @test parse("[ 1, 2 ]") == {1,2}
+  @test parse("[]") == []
+  @test parse("[1]") == Any[1]
+  @test parse("[1,2]") == Any[1,2]
+  @test parse("[ 1, 2 ]") == Any[1,2]
 end
 
 function parse_dict(io::IO)
-  dict = Dict{String,Any}()
+  dict = Dict{AbstractString,Any}()
   skipwhitespace(io) ≡ '}' && return dict
   skip(io, -1)
   while true
     key = parse(io)
-    @assert isa(key, String) "dictionary keys must be strings"
+    @assert isa(key, AbstractString) "dictionary keys must be strings"
     @assert skipwhitespace(io) ≡ ':' "missing semi-colon"
     dict[key] = parse(io)
     c = skipwhitespace(io)
@@ -111,21 +117,8 @@ function parse_dict(io::IO)
 end
 
 test("Dict") do
-  @test parse("{}") == Dict{String,Any}()
-  @test collect(keys(open(parse, "dependencies.json"))) == ["development"]
-  @test ==(open(parse, "dependencies/mime-db/db.json")["application/json"],
-           ["extensions" => {"json","map"},
-            "compressible" => true,
-            "charset" => "UTF-8",
-            "source" => "iana"])
+  @test parse("{}") == Dict{AbstractString,Any}()
   @test open(parse, "Readme.ipynb")["metadata"]["language"] == "Julia"
-end
-
-function skipwhitespace(io::IO)
-  while true
-    c = read(io, Char)
-    c in whitespace || return c
-  end
 end
 
 Base.parse(::MIME"application/json", io::IO) = parse(readall(io))
