@@ -118,7 +118,7 @@ end
 
 test("Dict") do
   @test parse("{}") == Dict{AbstractString,Any}()
-  @test open(parse, "Readme.ipynb")["metadata"]["language"] == "Julia"
+  @test open(parse, "Readme.ipynb")["metadata"]["language_info"]["name"] == "julia"
 end
 
 Base.parse(::MIME"application/json", io::IO) = parse(readall(io))
