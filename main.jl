@@ -1,28 +1,26 @@
 @require "github.com/BioJulia/BufferedStreams.jl" peek BufferedInputStream
 
-const whitespace = UInt8[" \t\n\r"...]
-const digits = UInt8["0123456789+-"...]
+const whitespace = b" \t\n\r"
+const digits = b"0123456789+-"
 isdigit(n::UInt8) = n in digits
 
-function skipwhitespace(io::BufferedInputStream)
+skipwhitespace(io::BufferedInputStream) =
   while true
     c = read(io, UInt8)
     c in whitespace || return c
   end
-end
 
 parse(json::AbstractString) = parse(IOBuffer(json))
 parse(json::IO) = parse(BufferedInputStream(json))
-
-function parse(io::BufferedInputStream)
+parse(io::BufferedInputStream) = begin
   c = skipwhitespace(io)
   if     c == '"' parse_string(io)
   elseif c == '{' parse_dict(io)
   elseif c == '[' parse_vec(io)
   elseif isdigit(c) || c == '+' || c == '-' parse_number(c, io)
-  elseif c == 't' && readbytes(io, 3) == ["rue"... ] true
-  elseif c == 'f' && readbytes(io, 4) == ["alse"...] false
-  elseif c == 'n' && readbytes(io, 3) == ["ull"... ] nothing
+  elseif c == 't' && readbytes(io, 3) == b"rue" true
+  elseif c == 'f' && readbytes(io, 4) == b"alse" false
+  elseif c == 'n' && readbytes(io, 3) == b"ull" nothing
   else error("Unexpected char: $(convert(Char, c))") end
 end
 
