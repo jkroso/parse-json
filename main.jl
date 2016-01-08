@@ -10,8 +10,8 @@ skipwhitespace(io::BufferedInputStream) =
     c in whitespace || return c
   end
 
-parse(json::AbstractString) = parse(IOBuffer(json))
-parse(json::IO) = parse(BufferedInputStream(json))
+parse(json) = parse(BufferedInputStream(json))
+parse(json::AbstractString) = parse(convert(Vector{UInt8}, json))
 parse(io::BufferedInputStream) = begin
   c = skipwhitespace(io)
   if     c == '"' parse_string(io)
@@ -31,20 +31,17 @@ test("primitives") do
 end
 
 function parse_number(c::UInt8, io::BufferedInputStream)
-  Type = Int32
   buf = UInt8[c]
   while !eof(io)
     c = peek(io)
     if c == '.'
-      @assert Type == Int32 "malformed number"
-      Type = Float32
+      @assert '.' ∉ buf "malformed number"
     elseif !isdigit(c)
       break
     end
-    read(io, UInt8)
-    push!(buf, c)
+    push!(buf, read(io, UInt8))
   end
-  Base.parse(Type, ascii(buf))
+  Base.parse(Float32, bytestring(buf))
 end
 
 test("numbers") do
