@@ -1,12 +1,12 @@
 @require "github.com/BioJulia/BufferedStreams.jl" peek BufferedInputStream
 
-const whitespace = b" \t\n\r"
-const digits = b"0123456789+-"
-isdigit(n::UInt8) = n in digits
+const whitespace = " \t\n\r"
+const digits = "0123456789+-"
+isdigit(n::Char) = n in digits
 
 skipwhitespace(io::BufferedInputStream) =
   while true
-    c = read(io, UInt8)
+    c = read(io, Char)
     c in whitespace || return c
   end
 
@@ -18,47 +18,34 @@ parse(io::BufferedInputStream) = begin
   elseif c == '{' parse_dict(io)
   elseif c == '[' parse_vec(io)
   elseif isdigit(c) || c == '+' || c == '-' parse_number(c, io)
-  elseif c == 't' && readbytes(io, 3) == b"rue" true
-  elseif c == 'f' && readbytes(io, 4) == b"alse" false
-  elseif c == 'n' && readbytes(io, 3) == b"ull" nothing
-  else error("Unexpected char: $(convert(Char, c))") end
+  elseif c == 't' && read(io, 3) == b"rue" true
+  elseif c == 'f' && read(io, 4) == b"alse" false
+  elseif c == 'n' && read(io, 3) == b"ull" nothing
+  else error("Unexpected char: $c") end
 end
 
-test("primitives") do
-  @test !parse("false")
-  @test parse("true")
-  @test parse("null") == nothing
-end
-
-function parse_number(c::UInt8, io::BufferedInputStream)
-  buf = UInt8[c]
+function parse_number(c::Char, io::BufferedInputStream)
+  buf = Char[c]
   while !eof(io)
-    c = peek(io)
+    c = convert(Char, peek(io))
     if c == '.'
       @assert '.' ∉ buf "malformed number"
     elseif !isdigit(c)
       break
     end
-    push!(buf, read(io, UInt8))
+    push!(buf, read(io, Char))
   end
-  Base.parse(Float32, bytestring(buf))
-end
-
-test("numbers") do
-  @test parse("1") == 1
-  @test parse("+1") == 1
-  @test parse("-1") == -1
-  @test parse("1.0") == 1.0
+  Base.parse(Float32, String(buf))
 end
 
 function parse_string(io::BufferedInputStream)
   buf = IOBuffer()
   while true
-    c = read(io, UInt8)
+    c = read(io, Char)
     c == '"' && return takebuf_string(buf)
     if c == '\\'
-      c = read(io, UInt8)
-      if c == 'u' write(buf, unescape_string("\\u$(utf8(readbytes(io, 4)))")[1]) # Unicode escape
+      c = read(io, Char)
+      if c == 'u' write(buf, unescape_string("\\u$(String(read(io, 4)))")[1]) # Unicode escape
       elseif c == '"'  write(buf, '"' )
       elseif c == '\\' write(buf, '\\')
       elseif c == '/'  write(buf, '/' )
@@ -67,37 +54,24 @@ function parse_string(io::BufferedInputStream)
       elseif c == 'n'  write(buf, '\n')
       elseif c == 'r'  write(buf, '\r')
       elseif c == 't'  write(buf, '\t')
-      else error("Unrecognized escaped character: $(convert(Char, c))") end
+      else error("Unrecognized escaped character: $c") end
     else
       write(buf, c)
     end
   end
 end
 
-test("strings") do
-  @test parse("\"hi\"") == "hi"
-  @test parse("\"\\n\"") == "\n"
-  @test parse("\"\\u0026\"") == "&"
-end
-
 function parse_vec(io::BufferedInputStream)
   vec = Any[]
   while true
-    c = peek(io)
-    c == ']' && (read(io, UInt8); return vec)
-    c in whitespace && (read(io, UInt8); continue)
+    c = convert(Char, peek(io))
+    c == ']' && (read(io, Char); return vec)
+    c in whitespace && (read(io, Char); continue)
     push!(vec, parse(io))
     c = skipwhitespace(io)
     c == ']' && return vec
     @assert c == ',' "missing comma"
   end
-end
-
-test("Vector") do
-  @test parse("[]") == []
-  @test parse("[1]") == Any[1]
-  @test parse("[1,2]") == Any[1,2]
-  @test parse("[ 1, 2 ]") == Any[1,2]
 end
 
 function parse_dict(io::BufferedInputStream)
@@ -113,11 +87,6 @@ function parse_dict(io::BufferedInputStream)
     c == '}' && return dict
     @assert c == ',' "missing comma"
   end
-end
-
-test("Dict") do
-  @test parse("{}") == Dict{AbstractString,Any}()
-  @test open(parse, "Readme.ipynb")["metadata"]["language_info"]["name"] == "julia"
 end
 
 Base.parse(::MIME"application/json", io::IO) = parse(io)
