@@ -89,4 +89,4 @@ function parse_dict(io::BufferedInputStream)
   end
 end
 
-Base.parse(::MIME"application/json", io::IO) = parse(io)
+Base.parse(::MIME"application/json", data::Any) = parse(data)
