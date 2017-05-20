@@ -42,7 +42,7 @@ function parse_string(io::BufferedInputStream)
   buf = IOBuffer()
   while true
     c = read(io, Char)
-    c == '"' && return takebuf_string(buf)
+    c == '"' && return String(take!(buf))
     if c == '\\'
       c = read(io, Char)
       if c == 'u' write(buf, unescape_string("\\u$(String(read(io, 4)))")[1]) # Unicode escape
