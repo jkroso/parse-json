@@ -1,19 +1,17 @@
-@require "github.com/BioJulia/BufferedStreams.jl" peek BufferedInputStream
+@require "github.com/jkroso/AsyncBuffer.jl" asyncpipe Buffer
 
 const whitespace = " \t\n\r"
 const digits = "0123456789+-"
 isdigit(n::Char) = n in digits
 
-skipwhitespace(io::BufferedInputStream) =
+skipwhitespace(io::IO) =
   while true
     c = read(io, Char)
     c in whitespace || return c
   end
 
-parse(json) = parse(BufferedInputStream(json))
-parse(json::AbstractString) = parse(convert(Vector{UInt8}, json))
-parse(io::BufferedInputStream) = begin
-  c = skipwhitespace(io)
+parse(json::AbstractString) = parse(IOBuffer(json))
+parse(io::IO, c::Char=skipwhitespace(io)) = begin
   if     c == '"' parse_string(io)
   elseif c == '{' parse_dict(io)
   elseif c == '[' parse_vec(io)
@@ -24,21 +22,22 @@ parse(io::BufferedInputStream) = begin
   else error("Unexpected char: $c") end
 end
 
-function parse_number(c::Char, io::BufferedInputStream)
+function parse_number(c::Char, io::IO)
   buf = Char[c]
   while !eof(io)
-    c = convert(Char, peek(io))
+    c = read(io, Char)
     if c == '.'
       @assert '.' ∉ buf "malformed number"
     elseif !isdigit(c)
+      skip(io, -1)
       break
     end
-    push!(buf, read(io, Char))
+    push!(buf, c)
   end
   Base.parse(Float32, String(buf))
 end
 
-function parse_string(io::BufferedInputStream)
+function parse_string(io::IO)
   buf = IOBuffer()
   while true
     c = read(io, Char)
@@ -61,20 +60,20 @@ function parse_string(io::BufferedInputStream)
   end
 end
 
-function parse_vec(io::BufferedInputStream)
+function parse_vec(io::IO)
   vec = Any[]
   while true
-    c = convert(Char, peek(io))
-    c == ']' && (read(io, Char); return vec)
-    c in whitespace && (read(io, Char); continue)
-    push!(vec, parse(io))
+    c = read(io, Char)
+    c == ']' && return vec
+    c in whitespace && continue
+    push!(vec, parse(io, c))
     c = skipwhitespace(io)
     c == ']' && return vec
     @assert c == ',' "missing comma"
   end
 end
 
-function parse_dict(io::BufferedInputStream)
+function parse_dict(io::IO)
   dict = Dict{AbstractString,Any}()
   while true
     c = skipwhitespace(io)
@@ -89,4 +88,6 @@ function parse_dict(io::BufferedInputStream)
   end
 end
 
-Base.parse(::MIME"application/json", data::Any) = parse(data)
+goodIO(data::IO) = applicable(skip, data, -1) ? data : asyncpipe(data, Buffer())
+goodIO(x::Any) = IOBuffer(x)
+Base.parse(::MIME"application/json", data::Any) = parse(goodIO(data))
