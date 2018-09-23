@@ -1,4 +1,4 @@
-@require "github.com/jkroso/AsyncBuffer.jl" asyncpipe Buffer AsyncBuffer
+@require "github.com/jkroso/AsyncBuffer.jl" pipe Buffer AsyncBuffer
 
 const whitespace = " \t\n\r"
 const digits = "0123456789+-"
@@ -88,7 +88,7 @@ function parse_dict(io::IO)
   end
 end
 
-goodIO(io::IO) = asyncpipe(io, Buffer())
+goodIO(io::IO) = pipe(io, Buffer())
 goodIO(io::Union{IOBuffer,AsyncBuffer}) = io
 goodIO(x::Any) = IOBuffer(x)
 Base.parse(::MIME"application/json", data::Any) = parse(goodIO(data))
